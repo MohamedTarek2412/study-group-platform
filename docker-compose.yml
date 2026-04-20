@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks: [studygroup-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: [zookeeper]
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks: [studygroup-net]
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - studygroup-net
+  
+  auth-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    volumes: [auth-data:/var/lib/postgresql/data]
+    networks: [studygroup-net]
+
+  user-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+    volumes: [user-data:/var/lib/postgresql/data]
+    networks: [studygroup-net]
+
+  group-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: group_db
+      POSTGRES_USER: group_user
+      POSTGRES_PASSWORD: group_pass
+    volumes: [group-data:/var/lib/postgresql/data]
+    networks: [studygroup-net]
+
+  discussion-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: discussion_db
+      POSTGRES_USER: disc_user
+      POSTGRES_PASSWORD: disc_pass
+    volumes: [discussion-data:/var/lib/postgresql/data]
+    networks: [studygroup-net]
+
+  api-gateway:
+    build: ./api-gateway
+    ports: ["8080:8080"]
+    depends_on: [auth-service, user-service, group-service, discussion-service]
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      GROUP_SERVICE_URL: http://group-service:8083
+      DISCUSSION_SERVICE_URL: http://discussion-service:8084
+    networks: [studygroup-net]
+
+  auth-service:
+    build: ./auth-service
+    depends_on: [auth-db, kafka]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+    networks: [studygroup-net]
+
+  user-service:
+    build: ./user-service
+    depends_on: [user-db, kafka]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/user_db
+      SPRING_DATASOURCE_USERNAME: user_user
+      SPRING_DATASOURCE_PASSWORD: user_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+
+  group-service:
+    build: ./group-service
+    depends_on: [group-db, kafka]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://group-db:5432/group_db
+      SPRING_DATASOURCE_USERNAME: group_user
+      SPRING_DATASOURCE_PASSWORD: group_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+
+  discussion-service:
+    build: ./discussion-service
+    depends_on: [discussion-db, kafka]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://discussion-db:5432/discussion_db
+      SPRING_DATASOURCE_USERNAME: disc_user
+      SPRING_DATASOURCE_PASSWORD: disc_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+
+  frontend:
+    build: ./frontend
+    ports: ["3000:80"]
+    environment:
+      REACT_APP_API_URL: http://localhost:8080
+    networks: [studygroup-net]
+    depends_on:
+      - api-gateway
+
+networks:
+  studygroup-net:
+    driver: bridge
+
+volumes:
+  auth-data:
+  user-data:
+  group-data:
+  discussion-data:
+  zookeeper-data:
+  zookeeper-log:
