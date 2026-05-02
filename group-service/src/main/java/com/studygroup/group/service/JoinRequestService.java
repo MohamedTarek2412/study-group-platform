@@ -7,6 +7,7 @@ import com.studygroup.group.exception.UnauthorizedException;
 import com.studygroup.group.kafka.GroupEventProducer;
 import com.studygroup.group.model.Group;
 import com.studygroup.group.model.GroupMember;
+import com.studygroup.group.model.GroupStatus;
 import com.studygroup.group.model.JoinRequest;
 import com.studygroup.group.model.RequestStatus;
 import com.studygroup.group.repository.GroupMemberRepository;
@@ -36,10 +37,13 @@ public class JoinRequestService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        // Check if user already has a pending or accepted request
-        joinRequestRepository.findByGroupIdAndUserId(groupId, userId)
+        if (group.getStatus() != GroupStatus.APPROVED) {
+            throw new IllegalArgumentException("Join requests are only allowed for approved groups");
+        }
+
+        joinRequestRepository.findByGroupIdAndUserIdAndStatus(groupId, userId, RequestStatus.PENDING)
                 .ifPresent(jr -> {
-                    throw new IllegalArgumentException("User already has a request for this group");
+                    throw new IllegalArgumentException("User already has a pending request for this group");
                 });
 
         // Check if user is already a member
@@ -69,17 +73,24 @@ public class JoinRequestService {
                 .collect(Collectors.toList());
     }
 
-    public List<JoinRequestDto> getPendingJoinRequestsForGroup(Long groupId) {
+    public List<JoinRequestDto> getPendingJoinRequestsForGroup(Long groupId, Long requesterId, boolean isAdmin) {
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
+
+        if (!isAdmin && !group.getCreatorId().equals(requesterId)) {
+            throw new UnauthorizedException("Only the group creator or an admin can view join requests");
+        }
+
         return joinRequestRepository.findByGroupIdAndStatus(groupId, RequestStatus.PENDING).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
 
-    public JoinRequestDto acceptJoinRequest(Long groupId, Long requestId, Long creatorId) {
-        Group group = groupRepository.findById(groupId)
+    public JoinRequestDto acceptJoinRequest(Long groupId, Long requestId, Long requesterId, boolean isAdmin) {
+        Group group = groupRepository.findByIdForUpdate(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        if (!group.getCreatorId().equals(creatorId)) {
+        if (!isAdmin && !group.getCreatorId().equals(requesterId)) {
             throw new UnauthorizedException("Only the group creator can accept join requests");
         }
 
@@ -88,6 +99,14 @@ public class JoinRequestService {
 
         if (!joinRequest.getGroupId().equals(groupId)) {
             throw new IllegalArgumentException("Join request does not belong to this group");
+        }
+
+        if (joinRequest.getStatus() == RequestStatus.ACCEPTED) {
+            return convertToDto(joinRequest);
+        }
+
+        if (joinRequest.getStatus() != RequestStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending join requests can be accepted");
         }
 
         // Check if group is full
@@ -119,11 +138,11 @@ public class JoinRequestService {
         return convertToDto(updatedRequest);
     }
 
-    public JoinRequestDto rejectJoinRequest(Long groupId, Long requestId, Long creatorId) {
+    public JoinRequestDto rejectJoinRequest(Long groupId, Long requestId, Long requesterId, boolean isAdmin) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
-        if (!group.getCreatorId().equals(creatorId)) {
+        if (!isAdmin && !group.getCreatorId().equals(requesterId)) {
             throw new UnauthorizedException("Only the group creator can reject join requests");
         }
 
@@ -132,6 +151,14 @@ public class JoinRequestService {
 
         if (!joinRequest.getGroupId().equals(groupId)) {
             throw new IllegalArgumentException("Join request does not belong to this group");
+        }
+
+        if (joinRequest.getStatus() == RequestStatus.REJECTED) {
+            return convertToDto(joinRequest);
+        }
+
+        if (joinRequest.getStatus() != RequestStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending join requests can be rejected");
         }
 
         joinRequest.setStatus(RequestStatus.REJECTED);

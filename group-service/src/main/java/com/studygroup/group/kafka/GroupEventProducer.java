@@ -1,9 +1,9 @@
 package com.studygroup.group.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.studygroup.group.service.OutboxService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -13,8 +13,8 @@ import java.time.LocalDateTime;
 @Slf4j
 public class GroupEventProducer {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final OutboxService outboxService;
 
     public void publishGroupCreatedEvent(Long groupId, Long creatorId, String creatorName, String groupName) {
         GroupEvent event = GroupEvent.builder()
@@ -63,10 +63,10 @@ public class GroupEventProducer {
     private void publishEvent(String topic, GroupEvent event) {
         try {
             String eventJson = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send(topic, eventJson);
-            log.info("Event published to topic {}: {}", topic, event.getEventType());
+            outboxService.enqueue(topic, event.getEventType(), eventJson);
+            log.info("Event enqueued to outbox for topic {}: {}", topic, event.getEventType());
         } catch (Exception e) {
-            log.error("Error publishing event to topic {}: {}", topic, e.getMessage());
+            log.error("Error enqueueing event for topic {}: {}", topic, e.getMessage());
         }
     }
 }

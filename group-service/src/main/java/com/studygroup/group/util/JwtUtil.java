@@ -31,7 +31,14 @@ public class JwtUtil {
 
     public Long extractUserId(String token) {
         try {
-            return Long.parseLong(getClaimsFromToken(token).get("userId", String.class));
+            Object claim = getClaimsFromToken(token).get("userId");
+            if (claim instanceof Number number) {
+                return number.longValue();
+            }
+            if (claim instanceof String value) {
+                return Long.parseLong(value);
+            }
+            return null;
         } catch (Exception e) {
             log.error("Error extracting userId from token: {}", e.getMessage());
             return null;

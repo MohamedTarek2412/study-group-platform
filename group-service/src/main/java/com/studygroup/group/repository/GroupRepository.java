@@ -2,9 +2,11 @@ package com.studygroup.group.repository;
 
 import com.studygroup.group.model.Group;
 import com.studygroup.group.model.GroupStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -27,4 +29,8 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
     Page<Group> searchGroups(@Param("searchQuery") String searchQuery, Pageable pageable);
 
     List<Group> findByStatusAndCreatorId(GroupStatus status, Long creatorId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT g FROM Group g WHERE g.id = :id")
+    Optional<Group> findByIdForUpdate(@Param("id") Long id);
 }

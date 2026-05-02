@@ -3,8 +3,10 @@ package com.studygroup.group.controller;
 import com.studygroup.group.dto.ApiResponse;
 import com.studygroup.group.dto.CreateGroupRequest;
 import com.studygroup.group.dto.GroupDto;
+import com.studygroup.group.dto.GroupMemberDto;
+import com.studygroup.group.security.AuthenticatedUser;
+import com.studygroup.group.security.SecurityUtils;
 import com.studygroup.group.service.GroupService;
-import com.studygroup.group.util.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,7 +27,6 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
-    private final JwtUtil jwtUtil;
 
     // Public endpoints
 
@@ -71,21 +73,13 @@ public class GroupController {
     // Creator endpoints
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CREATOR','ADMIN')")
     public ResponseEntity<ApiResponse<GroupDto>> createGroup(
-            @Valid @RequestBody CreateGroupRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        Long creatorId = extractUserIdFromToken(authHeader);
-        String creatorName = extractUsernameFromToken(authHeader);
+            @Valid @RequestBody CreateGroupRequest request) {
+        AuthenticatedUser currentUser = SecurityUtils.getCurrentUser();
+        Long creatorId = currentUser.getUserId();
+        String creatorName = currentUser.getUsername();
         log.info("Creating group for creator: {} ({})", creatorId, creatorName);
-
-        if (creatorId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ApiResponse.<GroupDto>builder()
-                            .success(false)
-                            .message("Authentication required")
-                            .error("UNAUTHORIZED")
-                            .build());
-        }
 
         GroupDto group = groupService.createGroup(creatorId, creatorName, request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -97,21 +91,12 @@ public class GroupController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('CREATOR','ADMIN')")
     public ResponseEntity<ApiResponse<GroupDto>> updateGroup(
             @PathVariable Long id,
-            @Valid @RequestBody CreateGroupRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        Long creatorId = extractUserIdFromToken(authHeader);
+            @Valid @RequestBody CreateGroupRequest request) {
+        Long creatorId = SecurityUtils.getCurrentUser().getUserId();
         log.info("Updating group {} for creator: {}", id, creatorId);
-
-        if (creatorId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ApiResponse.<GroupDto>builder()
-                            .success(false)
-                            .message("Authentication required")
-                            .error("UNAUTHORIZED")
-                            .build());
-        }
 
         GroupDto group = groupService.updateGroup(id, creatorId, request);
         return ResponseEntity.ok(ApiResponse.<GroupDto>builder()
@@ -122,20 +107,11 @@ public class GroupController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('CREATOR','ADMIN')")
     public ResponseEntity<ApiResponse<String>> deleteGroup(
-            @PathVariable Long id,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        Long creatorId = extractUserIdFromToken(authHeader);
+            @PathVariable Long id) {
+        Long creatorId = SecurityUtils.getCurrentUser().getUserId();
         log.info("Deleting group {} for creator: {}", id, creatorId);
-
-        if (creatorId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(ApiResponse.<String>builder()
-                            .success(false)
-                            .message("Authentication required")
-                            .error("UNAUTHORIZED")
-                            .build());
-        }
 
         groupService.deleteGroup(id, creatorId);
         return ResponseEntity.ok(ApiResponse.<String>builder()
@@ -147,20 +123,10 @@ public class GroupController {
     // Admin endpoints
 
     @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<GroupDto>> approveGroup(
-            @PathVariable Long id,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String role = extractRoleFromToken(authHeader);
+            @PathVariable Long id) {
         log.info("Approving group: {} (Admin role required)", id);
-
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.<GroupDto>builder()
-                            .success(false)
-                            .message("Admin role required")
-                            .error("FORBIDDEN")
-                            .build());
-        }
 
         GroupDto group = groupService.approveGroup(id);
         return ResponseEntity.ok(ApiResponse.<GroupDto>builder()
@@ -171,20 +137,10 @@ public class GroupController {
     }
 
     @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<GroupDto>> rejectGroup(
-            @PathVariable Long id,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String role = extractRoleFromToken(authHeader);
+            @PathVariable Long id) {
         log.info("Rejecting group: {} (Admin role required)", id);
-
-        if (!"ADMIN".equals(role)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.<GroupDto>builder()
-                            .success(false)
-                            .message("Admin role required")
-                            .error("FORBIDDEN")
-                            .build());
-        }
 
         GroupDto group = groupService.rejectGroup(id);
         return ResponseEntity.ok(ApiResponse.<GroupDto>builder()
@@ -197,39 +153,13 @@ public class GroupController {
     // Member endpoints
 
     @GetMapping("/{id}/members")
-    public ResponseEntity<ApiResponse<List<GroupDto>>> getGroupMembers(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<List<GroupMemberDto>>> getGroupMembers(@PathVariable Long id) {
         log.info("Fetching members for group: {}", id);
-        List<GroupDto> members = groupService.getGroupMembers(id);
-        return ResponseEntity.ok(ApiResponse.<List<GroupDto>>builder()
+        List<GroupMemberDto> members = groupService.getGroupMembers(id);
+        return ResponseEntity.ok(ApiResponse.<List<GroupMemberDto>>builder()
                 .success(true)
                 .message("Members fetched successfully")
                 .data(members)
                 .build());
-    }
-
-    // Helper methods
-
-    private Long extractUserIdFromToken(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            return jwtUtil.extractUserId(token);
-        }
-        return null;
-    }
-
-    private String extractUsernameFromToken(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            return jwtUtil.extractUsername(token);
-        }
-        return null;
-    }
-
-    private String extractRoleFromToken(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            return jwtUtil.extractRole(token);
-        }
-        return null;
     }
 }

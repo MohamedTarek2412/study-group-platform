@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ApiResponse<Object>> handleUnauthorized(UnauthorizedException ex, WebRequest request) {
         log.error("Unauthorized access: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.builder()
                         .success(false)
                         .message(ex.getMessage())

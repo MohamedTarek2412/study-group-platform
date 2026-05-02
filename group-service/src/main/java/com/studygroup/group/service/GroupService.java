@@ -2,6 +2,7 @@ package com.studygroup.group.service;
 
 import com.studygroup.group.dto.CreateGroupRequest;
 import com.studygroup.group.dto.GroupDto;
+import com.studygroup.group.dto.GroupMemberDto;
 import com.studygroup.group.exception.ResourceNotFoundException;
 import com.studygroup.group.exception.UnauthorizedException;
 import com.studygroup.group.kafka.GroupEventProducer;
@@ -153,14 +154,17 @@ public class GroupService {
         return convertToDto(updatedGroup);
     }
 
-    public List<GroupDto> getGroupMembers(Long groupId) {
+    public List<GroupMemberDto> getGroupMembers(Long groupId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found with id: " + groupId));
 
         return groupMemberRepository.findByGroupId(groupId).stream()
-                .map(member -> GroupDto.builder()
+                .map(member -> GroupMemberDto.builder()
                         .id(member.getId())
-                        .name(member.getUserName())
+                        .groupId(member.getGroupId())
+                        .userId(member.getUserId())
+                        .userName(member.getUserName())
+                        .joinedAt(member.getJoinedAt())
                         .build())
                 .collect(Collectors.toList());
     }

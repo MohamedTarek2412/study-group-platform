@@ -16,5 +16,7 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> 
 
     Optional<JoinRequest> findByGroupIdAndUserId(Long groupId, Long userId);
 
+    Optional<JoinRequest> findByGroupIdAndUserIdAndStatus(Long groupId, Long userId, RequestStatus status);
+
     List<JoinRequest> findByUserId(Long userId);
 }
