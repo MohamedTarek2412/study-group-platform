@@ -47,14 +47,15 @@ public class UserServiceImpl implements UserService {
             return;
         }
 
+        String derivedUsername = deriveUsernameFromEmail(event.getEmail());
         log.info("Bootstrapping profile for authUserId={} username={}",
-                event.getAuthUserId(), event.getUsername());
+                event.getAuthUserId(), derivedUsername);
 
         UserProfile profile = UserProfile.builder()
                 .authUserId(event.getAuthUserId())
-                .username(event.getUsername())
+                .username(derivedUsername)
                 .email(event.getEmail())
-                .displayName(event.getUsername()) // sensible default; user updates later
+                .displayName(derivedUsername) // sensible default; user updates later
                 .role(Role.STUDENT)
                 .creatorStatus(CreatorStatus.NOT_APPLIED)
                 .build();
@@ -208,5 +209,16 @@ public class UserServiceImpl implements UserService {
             profile.getSubjects().clear();
             profile.getSubjects().addAll(req.getSubjects());
         }
+    }
+
+    private String deriveUsernameFromEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "user-" + UUID.randomUUID().toString().substring(0, 8);
+        }
+        int atIdx = email.indexOf('@');
+        if (atIdx <= 0) {
+            return email.trim();
+        }
+        return email.substring(0, atIdx).trim();
     }
 }

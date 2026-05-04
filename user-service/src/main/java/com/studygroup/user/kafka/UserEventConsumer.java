@@ -50,8 +50,8 @@ public class UserEventConsumer {
     public void onUserRegistered(ConsumerRecord<String, UserRegisteredEvent> record) {
         UserRegisteredEvent event = record.value();
 
-        log.info("Received UserRegisteredEvent eventId={} authUserId={} username={}",
-                event.getEventId(), event.getAuthUserId(), event.getUsername());
+        log.info("Received UserRegisteredEvent eventId={} authUserId={} email={}",
+                event.getEventId(), event.getAuthUserId(), event.getEmail());
 
         userService.handleUserRegistered(event);
     }

@@ -40,7 +40,7 @@ public class UserEventProducer {
             Message<UserRegisteredEvent> message = MessageBuilder
                     .withPayload(event)
                     .setHeader(KafkaHeaders.TOPIC, userRegisteredTopic)
-                    .setHeader(KafkaHeaders.MESSAGE_KEY, messageKey)
+                    .setHeader(KafkaHeaders.KEY, messageKey)
                     .setHeader("eventId", event.getEventId().toString())
                     .setHeader("source", event.getSource())
                     .build();
@@ -59,6 +59,15 @@ public class UserEventProducer {
             // Keep auth flow resilient; registration succeeds even if Kafka is unavailable
             log.warn("Exception while publishing UserRegisteredEvent: {}", ex.getMessage(), ex);
         }
+    }
+
+    public void publishUserRegistered(String email, String role) {
+        UserRegisteredEvent event = UserRegisteredEvent.builder()
+                .authUserId(UUID.randomUUID())
+                .email(email)
+                .role(role)
+                .build();
+        publishUserRegistered(event);
     }
 }
 
