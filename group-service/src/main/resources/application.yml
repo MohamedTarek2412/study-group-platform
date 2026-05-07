@@ -6,17 +6,24 @@ server:
 spring:
   application:
     name: group-service
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
   datasource:
-    url: jdbc:postgresql://localhost:5432/study_group_db
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/study_group_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQL10Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: false
   flyway:
@@ -24,24 +31,22 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
-      bootstrap-servers: localhost:9092
       group-id: group-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
 
 eureka:
   client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-    enabled: true
+    enabled: false
 
 jwt:
-  secret: your-secret-key-that-is-at-least-256-bits-long-for-HS256-algorithm-please-change-this
+  secret: ${JWT_SECRET:your-secret-key-that-is-at-least-256-bits-long-for-HS256-algorithm-please-change-this}
   expiration: 86400000
 
 management:
@@ -57,4 +62,3 @@ logging:
   level:
     com.studygroup.group: DEBUG
     org.springframework.web: INFO
-

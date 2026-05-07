@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  # ── Cloud Gateway ──────────────────────────────────────────────
+  cloud:
+    gateway:
+      # Global CORS — allows the React frontend on port 3000
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+            allowCredentials: true
+            maxAge: 3600
+
+      # ── Routes ──────────────────────────────────────────────────
+      # Routes are defined programmatically in GatewayConfig.java
+      # DO NOT define routes here — they conflict with the Java config
+      # and cause "Unable to find GatewayFilterFactory with name JwtAuth"
+
+# ── JWT ────────────────────────────────────────────────────────
+jwt:
+  secret: ${JWT_SECRET:bXlTdXBlclNlY3JldEtleUZvclN0dWR5R3JvdXBQbGF0Zm9ybTEyMzQ1Njc4OTA=}
+
+# ── Actuator ───────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+# ── Logging ────────────────────────────────────────────────────
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.studygroup.gateway: DEBUG

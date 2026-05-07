@@ -40,14 +40,30 @@ export default function RegisterForm() {
         <Typography variant="h5">Create account</Typography>
         {error && <Alert severity="error">{error}</Alert>}
         {success && <Alert severity="success">{success}</Alert>}
-        <TextField name="fullName" label="Full name" value={form.fullName} onChange={handleChange} required />
-        <TextField name="email" label="Email" type="email" value={form.email} onChange={handleChange} required />
+        <TextField
+          name="fullName"
+          label="Full name"
+          value={form.fullName}
+          onChange={handleChange}
+          autoComplete="name"
+          required
+        />
+        <TextField
+          name="email"
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={handleChange}
+          autoComplete="email"
+          required
+        />
         <TextField
           name="password"
           label="Password"
           type="password"
           value={form.password}
           onChange={handleChange}
+          autoComplete="new-password"
           required
         />
         <TextField select name="role" label="Role" value={form.role} onChange={handleChange}>

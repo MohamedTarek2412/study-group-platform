@@ -4,7 +4,7 @@
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS users (
-    id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                  BIGSERIAL       PRIMARY KEY,
     email               VARCHAR(255)    NOT NULL UNIQUE,
     password            VARCHAR(255)    NOT NULL,
     role                VARCHAR(30)     NOT NULL DEFAULT 'USER',
@@ -14,10 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Indexes for common query patterns
-CREATE INDEX idx_users_email          ON users (email);
-CREATE INDEX idx_users_role           ON users (role);
-CREATE INDEX idx_users_is_active      ON users (is_active);
-CREATE INDEX idx_users_created_at     ON users (created_at);
+CREATE INDEX IF NOT EXISTS idx_users_email      ON users (email);
+CREATE INDEX IF NOT EXISTS idx_users_role       ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_is_active  ON users (is_active);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at);
 
 -- Auto-update updated_at on row modification
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -34,6 +34,7 @@ CREATE TRIGGER trg_users_updated_at
     EXECUTE FUNCTION set_updated_at();
 
 COMMENT ON TABLE users IS 'Stores authentication credentials and user identity';
+COMMENT ON COLUMN users.id IS 'Auto-incrementing primary key (matches User entity Long id)';
 COMMENT ON COLUMN users.email IS 'Unique identifier for authentication';
 COMMENT ON COLUMN users.password IS 'BCrypt-hashed password';
 COMMENT ON COLUMN users.role IS 'ADMIN | CREATOR | USER';

@@ -1,5 +1,6 @@
 package com.studygroup.group.aspect;
 
+import com.studygroup.group.annotation.RequireRole;
 import com.studygroup.group.exception.UnauthorizedException;
 import com.studygroup.group.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,8 +31,8 @@ public class AuthorizationAspect {
         }
     }
 
-    @Before("@annotation(com.studygroup.group.annotation.RequireRole('ADMIN'))")
-    public void checkAdminRole(JoinPoint joinPoint) {
+    @Before("@annotation(requireRole)")
+    public void checkRole(JoinPoint joinPoint, RequireRole requireRole) {
         HttpServletRequest request = getHttpServletRequest();
         String token = extractTokenFromRequest(request);
 
@@ -40,24 +41,23 @@ public class AuthorizationAspect {
         }
 
         String role = jwtUtil.extractRole(token);
-        if (!"ADMIN".equals(role)) {
-            throw new UnauthorizedException("Admin role required");
-        }
-    }
+        String requiredRole = requireRole.value();
 
-    @Before("@annotation(com.studygroup.group.annotation.RequireRole('CREATOR'))")
-    public void checkCreatorRole(JoinPoint joinPoint) {
-        HttpServletRequest request = getHttpServletRequest();
-        String token = extractTokenFromRequest(request);
-
-        if (token == null || !jwtUtil.validateToken(token)) {
-            throw new UnauthorizedException("Authentication required");
+        if ("ADMIN".equals(requiredRole)) {
+            if (!"ADMIN".equals(role)) {
+                throw new UnauthorizedException("Admin role required");
+            }
+            return;
         }
 
-        String role = jwtUtil.extractRole(token);
-        if (!"CREATOR".equals(role) && !"ADMIN".equals(role)) {
-            throw new UnauthorizedException("Creator role required");
+        if ("CREATOR".equals(requiredRole)) {
+            if (!"CREATOR".equals(role) && !"ADMIN".equals(role)) {
+                throw new UnauthorizedException("Creator role required");
+            }
+            return;
         }
+
+        throw new UnauthorizedException("Insufficient role");
     }
 
     private HttpServletRequest getHttpServletRequest() {

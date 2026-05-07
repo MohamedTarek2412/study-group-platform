@@ -2,9 +2,11 @@ package com.studygroup.auth.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
 import java.util.function.Function;
@@ -53,14 +55,26 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret)))
+                .verifyWith(Keys.hmacShaKeyFor(getKeyBytes()))
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
     private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(getKeyBytes());
+    }
+
+    private byte[] getKeyBytes() {
+        // Accept base64, base64url, or raw secrets (dev-friendly).
+        try {
+            return Decoders.BASE64.decode(jwtSecret);
+        } catch (DecodingException ignored) {
+            try {
+                return Decoders.BASE64URL.decode(jwtSecret);
+            } catch (DecodingException ignored2) {
+                return jwtSecret.getBytes(StandardCharsets.UTF_8);
+            }
+        }
     }
 }
