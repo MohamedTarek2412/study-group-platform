@@ -29,13 +29,22 @@ export default function LoginForm() {
       <Stack component="form" spacing={2} onSubmit={handleSubmit}>
         <Typography variant="h5">Sign in</Typography>
         {error && <Alert severity="error">{error}</Alert>}
-        <TextField name="email" type="email" label="Email" value={form.email} onChange={handleChange} required />
+        <TextField
+          name="email"
+          type="email"
+          label="Email"
+          value={form.email}
+          onChange={handleChange}
+          autoComplete="email"
+          required
+        />
         <TextField
           name="password"
           type="password"
           label="Password"
           value={form.password}
           onChange={handleChange}
+          autoComplete="current-password"
           required
         />
         <Button type="submit" variant="contained">

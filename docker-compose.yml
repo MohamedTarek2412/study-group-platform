@@ -1,6 +1,8 @@
 version: '3.8'
 
 services:
+
+  # ── Infrastructure ──────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
@@ -26,6 +28,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks: [studygroup-net]
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     ports:
@@ -34,11 +37,10 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
-    depends_on:
-      - kafka
-    networks:
-      - studygroup-net
-  
+    depends_on: [kafka]
+    networks: [studygroup-net]
+
+  # ── Databases ────────────────────────────────────────────────────
   auth-db:
     image: postgres:16
     environment:
@@ -75,80 +77,92 @@ services:
     volumes: [discussion-data:/var/lib/postgresql/data]
     networks: [studygroup-net]
 
+  # ── Application Services ─────────────────────────────────────────
+  auth-service:
+    build: ./auth-service
+    expose:
+      - "8081"
+    depends_on: [auth-db, kafka]
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: auth_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+    networks: [studygroup-net]
+    restart: on-failure
+
+  user-service:
+    build: ./user-service
+    expose:
+      - "8082"
+    depends_on: [user-db, kafka]
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/user_db
+      SPRING_DATASOURCE_USERNAME: user_user
+      SPRING_DATASOURCE_PASSWORD: user_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+    restart: on-failure
+
+  group-service:
+    build: ./group-service
+    expose:
+      - "8083"
+    depends_on: [group-db, kafka]
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://group-db:5432/group_db
+      SPRING_DATASOURCE_USERNAME: group_user
+      SPRING_DATASOURCE_PASSWORD: group_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+    restart: on-failure
+
+  discussion-service:
+    build: ./discussion-service
+    expose:
+      - "8084"
+    depends_on: [discussion-db, kafka]
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://discussion-db:5432/discussion_db
+      SPRING_DATASOURCE_USERNAME: disc_user
+      SPRING_DATASOURCE_PASSWORD: disc_pass
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [studygroup-net]
+    restart: on-failure
+
   api-gateway:
     build: ./api-gateway
-    ports: ["8080:8080"]
+    ports:
+      - "8080:8080"
     depends_on: [auth-service, user-service, group-service, discussion-service]
     environment:
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
       GROUP_SERVICE_URL: http://group-service:8083
       DISCUSSION_SERVICE_URL: http://discussion-service:8084
-    networks: [studygroup-net]
-
-  auth-service:
-    build: ./auth-service
-    ports: ["8081:8081"]
-    depends_on: [auth-db, kafka]
-    environment:
-      DB_HOST: auth-db
-      DB_PORT: 5432
-      DB_NAME: auth_db
-      DB_USER: auth_user
-      DB_PASSWORD: auth_pass
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET}
-      EUREKA_CLIENT_ENABLED: "false"
-      SPRING_CLOUD_CONFIG_ENABLED: "false"
-    networks: [studygroup-net]
-
-  user-service:
-    build: ./user-service
-    ports: ["8082:8082"]
-    depends_on: [user-db, kafka]
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://user-db:5432/user_db
-      SPRING_DATASOURCE_USERNAME: user_user
-      SPRING_DATASOURCE_PASSWORD: user_pass
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET}
-      EUREKA_CLIENT_ENABLED: "false"
-      SPRING_CLOUD_CONFIG_ENABLED: "false"
-    networks: [studygroup-net]
-
-  group-service:
-    build: ./group-service
-    ports: ["8083:8083"]
-    depends_on: [group-db, kafka]
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://group-db:5432/group_db
-      SPRING_DATASOURCE_USERNAME: group_user
-      SPRING_DATASOURCE_PASSWORD: group_pass
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET}
     networks: [studygroup-net]
-
-  discussion-service:
-    build: ./discussion-service
-    ports: ["8084:8084"]
-    depends_on: [discussion-db, kafka]
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://discussion-db:5432/discussion_db
-      SPRING_DATASOURCE_USERNAME: disc_user
-      SPRING_DATASOURCE_PASSWORD: disc_pass
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET}
-    networks: [studygroup-net]
+    restart: on-failure
 
   frontend:
     build: ./frontend
-    ports: ["3000:80"]
+    ports:
+      - "3000:80"
     environment:
       REACT_APP_API_URL: http://localhost:8080
+    depends_on: [api-gateway]
     networks: [studygroup-net]
-    depends_on:
-      - api-gateway
 
+# ── Networks & Volumes ───────────────────────────────────────────
 networks:
   studygroup-net:
     driver: bridge

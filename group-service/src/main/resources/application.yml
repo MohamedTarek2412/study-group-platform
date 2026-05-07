@@ -7,7 +7,7 @@ spring:
   application:
     name: group-service
   config:
-    import: optional:configserver:
+    import: "optional:configserver:"
   cloud:
     config:
       enabled: false
